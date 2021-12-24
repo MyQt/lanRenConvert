@@ -1,0 +1,6 @@
+<RCC>
+    <qresource prefix="/">
+        <file>icons/lanren.png</file>
+        <file>icons/lanrenApp.png</file>
+    </qresource>
+</RCC>

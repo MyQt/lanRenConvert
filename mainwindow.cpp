@@ -1,5 +1,6 @@
 #include "mainwindow.h"
 #include "ui_mainwindow.h"
+#include "sfilecopy.h"
 #include <QDir>
 #include <QFileDialog>
 #include <QFile>
@@ -56,6 +57,7 @@ void MainWindow::traversalSource(QString strSource)
                 traversalSource(path); // 递归调用遍历
             } else { //文件忽略掉非音频文件
                 if (suffix == "db") {
+
                     continue;
                 }
                 mFileList.append(path);
@@ -97,6 +99,11 @@ void MainWindow::on_btn_choice_load_clicked()
 
 void MainWindow::on_btn_go_clicked()
 {
+    QDir dir;
+    if(!dir.exists(ui->label_dir_load->text()) || !dir.exists(ui->label_dir_out->text())) {
+        QMessageBox::information(this, "警告","请先选择加载和输出目录");
+        return;
+    }
     if (mItemList.length() <= 0) {
         QString strToolInfo = "没有可以转换的文件";
         QToolTip::showText(QPoint(this->pos().x()-this->fontMetrics().horizontalAdvance(strToolInfo)/2+this->width()/2, this->pos().y()+this->height()/2-this->fontMetrics().height()/2), strToolInfo);
@@ -130,4 +137,59 @@ void MainWindow::on_btn_go_clicked()
         index++;
         QApplication::processEvents();
     }
+    // 转换完成，复制文件
+
+    copyToDest();
+    // 删除源目录
+    QModelIndex modelIndex = ui->list_file->currentIndex();
+    QString strRoot = mItemModel.data(modelIndex).toString();
+    clearDir(strRoot);
+}
+
+void MainWindow::on_btn_choice_out_clicked()
+{
+    QString filePath = QFileDialog::getExistingDirectory(this,"选择音频输出目录");
+    if (filePath.isEmpty()) {
+        QMessageBox::information(this, "警告", "请选择合法音频输出目录");
+        return;
+    }
+    ui->label_dir_out->setText(filePath);
+}
+
+void MainWindow::copyToDest()
+{
+    QModelIndex modelIndex = ui->list_file->currentIndex();
+    QString strLast = mItemModel.data(modelIndex).toString();
+    SFileCopy copy;
+    copy.copyDirectoryFiles(strLast, ui->label_dir_out->text(), true);
+}
+
+void MainWindow::clearDir(QString path)
+{
+    if(path.isEmpty())
+    {
+        return;
+    }
+    QDir dir(path);
+
+    dir.setFilter(QDir::AllEntries | QDir::NoDotAndDotDot | QDir::Hidden);
+    foreach(QFileInfo fileInfo, dir.entryInfoList())
+    {
+        if(fileInfo.isFile())
+        {
+            if(!fileInfo.isWritable())
+            {
+                QFile file(fileInfo.absoluteFilePath());
+                file.setPermissions(QFile::WriteOwner);
+            }
+
+            fileInfo.dir().remove(fileInfo.fileName());
+
+        }
+        else if(fileInfo.isDir())
+        {
+            clearDir(fileInfo.absoluteFilePath());
+        }
+    }
+    dir.rmpath(dir.absolutePath());
 }
